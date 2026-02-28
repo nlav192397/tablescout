@@ -15,61 +15,41 @@ const PORT = 3001;
 const RESY_API_KEY    = "VbWk7s3L4KiK5fzlO7JD3Q5EYolJI7n5";
 const RESY_AUTH_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJleHAiOjE3NzYxMzE5OTIsInVpZCI6MjIzMjc0MzcsImd0IjoiY29uc3VtZXIiLCJncyI6W10sImxhbmciOiJlbi11cyIsImV4dHJhIjp7Imd1ZXN0X2lkIjo4OTA0NzE0OH19.ALFeGq47NCBvCPFxnNr2wKudkjrA0DW8ITeSRwntXyeCJvwRKOmY-oYxBQ7niDmkmi2xq3BmNvft3MTSz2DAOwCsAHi4vj0ZrxbkV6DjLU-WfIlFTbg0B0GJm48uF5gQ34aGeghDiJq2KwcQ_ZHgGWW9B7NkZ4rxbD2DFe6ppN154KX7";
 
-// Hardcoded venue IDs — no startup resolution needed, works from any server
-const venueIds = {
-  "semma": 1263,
-  "atomix": 1016,
-  "le-bernardin": 1387,
-  "kabawa": 64882,
-  "has-snack-bar": 85855,
-  "king-restaurant": 1235,
-  "penny-restaurant-new-york": 65898,
-  "sushi-sho": 1414,
-  "tatiana-by-kwame-onwuachi": 57019,
-  "aska": 632,
-  "atoboy": 587,
-  "barbuto": 9649,
-  "borgo-new-york": 62832,
-  "bridges-restaurant": 62533,
-  "bungalow-new-york": 56789,
-  "cafe-kestrel": 82648,
-  "cafe-mado": 81909,
-  "casa-mono": 331,
-  "cervos": 1385,
-  "chambers-tribeca": 63201,
-  "chez-ma-tante": 1220,
-  "claud-restaurant": 56123,
-  "crown-shy": 10726,
-  "daniel": 29947,
-  "dhamaka": 48994,
-  "eyval": 59419,
-  "the-four-horsemen": 2492,
-  "four-twenty-five": 74580,
-  "frenchette": 3456,
-  "gage-and-tollner": 51876,
-  "houseman-restaurant": 2341,
-  "jeju-noodle-bar": 1543,
-  "kisa-new-york": 66123,
-  "koloman": 57891,
-  "kono-new-york": 54321,
-  "le-veau-dor": 54876,
-  "lilia": 418,
-  "lolo-restaurant-new-york": 63456,
-  "mams-east-village": 67123,
-  "misi": 3015,
-  "momofuku-ko": 302,
-  "oxalis-brooklyn": 7654,
-  "rafs-restaurant": 62109,
-  "rezdora": 5771,
-  "sushi-noz": 8765,
-  "sushi-ouji": 77859,
-  "theodora-fort-greene": 65234,
-  "una-pizza-napoletana": 6066,
-  "uotora": 64567,
-  "win-son": 4321,
-  "zwilling-restaurant-new-york": 63654,
-  "the-grill-new-york": 2876,
-};
+const RESY_SLUGS = [
+  "semma","atomix","le-bernardin","kabawa","has-snack-bar","king-restaurant",
+  "penny-restaurant-new-york","sushi-sho","tatiana-by-kwame-onwuachi","aska",
+  "atoboy","barbuto","borgo-new-york","bridges-restaurant","bungalow-new-york",
+  "cafe-kestrel","cafe-mado","casa-mono","cervos","chambers-tribeca",
+  "chez-ma-tante","claud-restaurant","crown-shy","daniel","dhamaka","eyval",
+  "the-four-horsemen","four-twenty-five","frenchette","gage-and-tollner",
+  "houseman-restaurant","jeju-noodle-bar","kisa-new-york","koloman","kono-new-york",
+  "le-veau-dor","lilia","lolo-restaurant-new-york","mams-east-village","misi",
+  "momofuku-ko","oxalis-brooklyn","rafs-restaurant","rezdora","sushi-noz",
+  "sushi-ouji","theodora-fort-greene","una-pizza-napoletana","uotora","win-son",
+  "zwilling-restaurant-new-york","the-grill-new-york"
+];
+
+const venueIds = {};
+
+async function resolveVenueId(slug) {
+  if (venueIds[slug]) return;
+  try {
+    const r = await resyGet(`/3/venue?url_slug=${slug}&location=new-york-ny`);
+    const id = r.body?.id?.resy;
+    if (id) { venueIds[slug] = id; console.log(`  ✓ ${slug} → ${id}`); }
+    else     { console.log(`  ✗ ${slug} → not found`); }
+  } catch(e) { console.log(`  ✗ ${slug} → ${e.message}`); }
+}
+
+async function resolveAll() {
+  const slugs = [...new Set(RESY_SLUGS)];
+  console.log(`\nResolving ${slugs.length} Resy venues...`);
+  for (let i = 0; i < slugs.length; i += 4) {
+    await Promise.all(slugs.slice(i, i+4).map(resolveVenueId));
+    await sleep(300);
+  }
+  console.log(`\n✓ ${Object.keys(venueIds).length}/${slugs.length} venues resolved\n`);
+}
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -566,11 +546,12 @@ const server = http.createServer(async (req, res) => {
   res.writeHead(404); res.end("Not found");
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log("\n╔═══════════════════════════════════╗");
   console.log("║      Table Scout — NYC            ║");
   console.log("╠═══════════════════════════════════╣");
   console.log(`║  Open: http://localhost:${PORT}     ║`);
   console.log("╚═══════════════════════════════════╝\n");
-  console.log(`  ${Object.keys(venueIds).length} venues pre-loaded. Ready!\n`);
+  await resolveAll();
+  console.log("  Ready. Refresh the browser if you opened it early.\n");
 });
