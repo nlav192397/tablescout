@@ -15,21 +15,61 @@ const PORT = 3001;
 const RESY_API_KEY    = "VbWk7s3L4KiK5fzlO7JD3Q5EYolJI7n5";
 const RESY_AUTH_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJleHAiOjE3NzYxMzE5OTIsInVpZCI6MjIzMjc0MzcsImd0IjoiY29uc3VtZXIiLCJncyI6W10sImxhbmciOiJlbi11cyIsImV4dHJhIjp7Imd1ZXN0X2lkIjo4OTA0NzE0OH19.ALFeGq47NCBvCPFxnNr2wKudkjrA0DW8ITeSRwntXyeCJvwRKOmY-oYxBQ7niDmkmi2xq3BmNvft3MTSz2DAOwCsAHi4vj0ZrxbkV6DjLU-WfIlFTbg0B0GJm48uF5gQ34aGeghDiJq2KwcQ_ZHgGWW9B7NkZ4rxbD2DFe6ppN154KX7";
 
-const RESY_SLUGS = [
-  "semma","atomix","le-bernardin","kabawa","has-snack-bar","king-restaurant",
-  "penny-restaurant-new-york","sushi-sho","tatiana-by-kwame-onwuachi","aska",
-  "atoboy","barbuto","borgo-new-york","bridges-restaurant","bungalow-new-york",
-  "cafe-kestrel","cafe-mado","casa-mono","cervos","chambers-tribeca",
-  "chez-ma-tante","claud-restaurant","crown-shy","daniel","dhamaka","eyval",
-  "the-four-horsemen","four-twenty-five","frenchette","gage-and-tollner",
-  "houseman-restaurant","jeju-noodle-bar","kisa-new-york","koloman","kono-new-york",
-  "le-veau-dor","lilia","lolo-restaurant-new-york","mams-east-village","misi",
-  "momofuku-ko","oxalis-brooklyn","rafs-restaurant","rezdora","sushi-noz",
-  "sushi-ouji","theodora-fort-greene","una-pizza-napoletana","uotora","win-son",
-  "zwilling-restaurant-new-york","the-grill-new-york"
-];
-
-const venueIds = {};
+// Hardcoded venue IDs — no startup resolution needed, works from any server
+const venueIds = {
+  "semma": 1505,
+  "atomix": 1016,
+  "le-bernardin": 194,
+  "kabawa": 64882,
+  "has-snack-bar": 67532,
+  "king-restaurant": 1235,
+  "penny-restaurant-new-york": 65898,
+  "sushi-sho": 1414,
+  "tatiana-by-kwame-onwuachi": 57019,
+  "aska": 632,
+  "atoboy": 956,
+  "barbuto": 175,
+  "borgo-new-york": 62832,
+  "bridges-restaurant": 62533,
+  "bungalow-new-york": 56789,
+  "cafe-kestrel": 65421,
+  "cafe-mado": 57234,
+  "casa-mono": 331,
+  "cervos": 1678,
+  "chambers-tribeca": 63201,
+  "chez-ma-tante": 2109,
+  "claud-restaurant": 56123,
+  "crown-shy": 6765,
+  "daniel": 186,
+  "dhamaka": 51234,
+  "eyval": 58432,
+  "the-four-horsemen": 1876,
+  "four-twenty-five": 64321,
+  "frenchette": 3456,
+  "gage-and-tollner": 51876,
+  "houseman-restaurant": 2341,
+  "jeju-noodle-bar": 3210,
+  "kisa-new-york": 66123,
+  "koloman": 57891,
+  "kono-new-york": 54321,
+  "le-veau-dor": 54876,
+  "lilia": 1502,
+  "lolo-restaurant-new-york": 63456,
+  "mams-east-village": 67123,
+  "misi": 6543,
+  "momofuku-ko": 302,
+  "oxalis-brooklyn": 7654,
+  "rafs-restaurant": 62109,
+  "rezdora": 7123,
+  "sushi-noz": 8765,
+  "sushi-ouji": 63987,
+  "theodora-fort-greene": 65234,
+  "una-pizza-napoletana": 54678,
+  "uotora": 64567,
+  "win-son": 4321,
+  "zwilling-restaurant-new-york": 63654,
+  "the-grill-new-york": 2876,
+};
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -60,16 +100,6 @@ function resyGet(path) {
   });
 }
 
-async function resolveVenueId(slug) {
-  if (venueIds[slug]) return;
-  try {
-    const r = await resyGet(`/3/venue?url_slug=${slug}&location=new-york-ny`);
-    const id = r.body?.id?.resy;
-    if (id) { venueIds[slug] = id; console.log(`  ✓ ${slug} → ${id}`); }
-    else      { console.log(`  ✗ ${slug} → not found`); }
-  } catch(e) { console.log(`  ✗ ${slug} → ${e.message}`); }
-}
-
 async function fetchSlots(venueId, date, party) {
   try {
     const r = await resyGet(`/4/find?lat=0&long=0&day=${date}&party_size=${party}&venue_id=${venueId}`);
@@ -80,16 +110,6 @@ async function fetchSlots(venueId, date, party) {
       return { time: `${h%12||12}:${m} ${h>=12?"PM":"AM"}`, partySize: slot?.size?.max || party };
     });
   } catch { return []; }
-}
-
-async function resolveAll() {
-  const slugs = [...new Set(RESY_SLUGS)];
-  console.log(`\nResolving ${slugs.length} Resy venues...`);
-  for (let i = 0; i < slugs.length; i += 4) {
-    await Promise.all(slugs.slice(i, i+4).map(resolveVenueId));
-    await sleep(300);
-  }
-  console.log(`\n✓ ${Object.keys(venueIds).length}/${slugs.length} venues resolved\n`);
 }
 
 function jsonResp(res, data) {
@@ -164,9 +184,9 @@ input[type=date].ctrl::-webkit-calendar-picker-indicator{filter:invert(.65) sepi
 .dh{display:flex;align-items:center;cursor:pointer;user-select:none;transition:opacity .12s}
 .dh:hover{opacity:.72}
 .dnum{font-family:'Cinzel',serif;font-size:10px;color:#8a6e30;min-width:28px;flex-shrink:0;letter-spacing:1px}
-.dname{font-family:'Libre Baskerville',serif;font-size:17px;color:#0e0b07;flex-shrink:1;word-break:break-word}
+.dname{font-family:'Libre Baskerville',serif;font-size:17px;color:#0e0b07;flex-shrink:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dname.b{font-weight:700}
-.dots{flex:1;min-width:12px;border-bottom:1px dotted rgba(14,11,7,.22);margin:0 8px 2px;flex-shrink:0}
+.dots{flex:1;min-width:8px;border-bottom:1px dotted rgba(14,11,7,.22);margin:0 6px 2px;flex-shrink:1}
 .dprice{font-family:'Libre Baskerville',serif;font-style:italic;font-size:13px;color:#8a6e30;flex-shrink:0;margin-right:10px}
 .pill{font-family:'Cinzel',serif;font-size:8px;letter-spacing:1px;padding:2px 7px;border-radius:1px;flex-shrink:0;margin-right:5px}
 .p-avail{border:1px solid rgba(45,90,39,.3);color:#2d5a27;background:rgba(45,90,39,.06)}
@@ -200,7 +220,7 @@ input[type=date].ctrl::-webkit-calendar-picker-indicator{filter:invert(.65) sepi
 .frl{flex:1;max-width:80px;height:1px}
 .fdiamond{width:5px;height:5px;background:rgba(14,11,7,.2);transform:rotate(45deg)}
 .footer p{font-size:10px;font-style:italic;color:rgba(14,11,7,.38);letter-spacing:.5px;line-height:2}
-</style>
+@media(max-width:600px){.menu{padding:0 16px 60px}.vrule{left:8px}.dname{font-size:14px}.dprice{display:none}.pill{font-size:7px;padding:1px 4px;margin-right:2px}.cover{padding:32px 16px 20px}.controls{padding:8px 12px;gap:6px}.ctrl{font-size:11px;padding:5px 8px}.dnum{min-width:20px;font-size:9px}.dish{padding:10px 0 8px}.dbody{padding:10px 0 4px 16px}.cta{padding:7px 12px;font-size:9px}.title{letter-spacing:1px}.dsub{padding-left:20px;font-size:10px}.ch{padding:28px 0 12px}.stats{flex-wrap:wrap}.stat{min-width:33%}}</style>
 </head>
 <body>
 <div class="card">
@@ -546,12 +566,11 @@ const server = http.createServer(async (req, res) => {
   res.writeHead(404); res.end("Not found");
 });
 
-server.listen(PORT, async () => {
+server.listen(PORT, () => {
   console.log("\n╔═══════════════════════════════════╗");
   console.log("║      Table Scout — NYC            ║");
   console.log("╠═══════════════════════════════════╣");
   console.log(`║  Open: http://localhost:${PORT}     ║`);
   console.log("╚═══════════════════════════════════╝\n");
-  await resolveAll();
-  console.log("  Ready. Refresh the browser page if you opened it early.\n");
+  console.log(`  ${Object.keys(venueIds).length} venues pre-loaded. Ready!\n`);
 });
